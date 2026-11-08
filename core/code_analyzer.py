@@ -2,15 +2,62 @@
 import ast
 
 
+def es_cero(node):
+    """Comprueba si una expresión representa el número cero."""
+
+    if isinstance(node, ast.Constant):
+        return (
+            isinstance(node.value, (int, float))
+            and not isinstance(node.value, bool)
+            and node.value == 0
+        )
+
+    if isinstance(node, ast.UnaryOp):
+        if isinstance(node.op, (ast.USub, ast.UAdd)):
+            return es_cero(node.operand)
+
+    return False
+
+
+def obtener_asignaciones(tree):
+    """Obtiene las asignaciones de variables y sus valores."""
+
+    asignaciones = {}
+
+    for node in ast.walk(tree):
+
+        if isinstance(node, ast.Assign):
+            if es_cero(node.value):
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        asignaciones.setdefault(target.id, []).append(
+                            (node.lineno, True)
+                        )
+            else:
+                for target in node.targets:
+                    if isinstance(target, ast.Name):
+                        asignaciones.setdefault(target.id, []).append(
+                            (node.lineno, False)
+                        )
+
+        elif isinstance(node, ast.AnnAssign):
+            if isinstance(node.target, ast.Name):
+                asignaciones.setdefault(
+                    node.target.id, []
+                ).append((node.lineno, es_cero(node.value)))
+
+    return asignaciones
+
+
 def analyze_code(code: str) -> dict:
     """
     Analiza código Python para detectar:
     - Código vacío.
     - Errores de sintaxis.
-    - Posibles divisiones entre cero.
+    - Divisiones entre cero directas.
+    - Divisiones entre variables asignadas a cero.
     """
 
-    # 1. Comprobar que exista código
     if not code.strip():
         return {
             "valid": False,
@@ -21,7 +68,6 @@ def analyze_code(code: str) -> dict:
             "issues": []
         }
 
-    # 2. Comprobar la sintaxis
     try:
         tree = ast.parse(code)
 
@@ -32,53 +78,44 @@ def analyze_code(code: str) -> dict:
             "message": error.msg,
             "line": error.lineno,
             "column": error.offset,
-            "issues": [
-                f"Error de sintaxis: {error.msg}"
-            ]
+            "issues": []
         }
 
-    # 3. Buscar posibles errores de lógica
     issues = []
+    asignaciones = obtener_asignaciones(tree)
 
     for node in ast.walk(tree):
 
-        if isinstance(node, ast.BinOp):
+        if not isinstance(node, ast.BinOp):
+            continue
 
-            # Revisar divisiones, divisiones enteras y módulos
-            if isinstance(
-                node.op,
-                (ast.Div, ast.FloorDiv, ast.Mod)
-            ):
+        if not isinstance(node.op, (ast.Div, ast.FloorDiv, ast.Mod)):
+            continue
 
-                divisor = node.right
+        divisor = node.right
+        es_division_cero = es_cero(divisor)
 
-                # Detectar cero directo: 10 / 0
-                es_cero = (
-                    isinstance(divisor, ast.Constant)
-                    and isinstance(divisor.value, (int, float))
-                    and not isinstance(divisor.value, bool)
-                    and divisor.value == 0
-                )
+        # Detectar variables cuyo valor anterior es cero.
+        if isinstance(divisor, ast.Name):
 
-                # Detectar cero negativo: 10 / -0
-                if (
-                    isinstance(divisor, ast.UnaryOp)
-                    and isinstance(divisor.op, (ast.USub, ast.UAdd))
-                    and isinstance(divisor.operand, ast.Constant)
-                    and isinstance(divisor.operand.value, (int, float))
-                    and not isinstance(divisor.operand.value, bool)
-                    and divisor.operand.value == 0
-                ):
-                    es_cero = True
+            historial = asignaciones.get(divisor.id, [])
 
-                if es_cero:
-                    issues.append({
-                        "message": "Posible división o módulo entre cero.",
-                        "line": node.lineno,
-                        "column": node.col_offset + 1
-                    })
+            anteriores = [
+                valor
+                for linea, valor in historial
+                if linea < node.lineno
+            ]
 
-    # 4. Si se encontraron problemas
+            if anteriores:
+                es_division_cero = anteriores[-1]
+
+        if es_division_cero:
+            issues.append({
+                "message": "Posible división o módulo entre cero.",
+                "line": node.lineno,
+                "column": divisor.col_offset + 1
+            })
+
     if issues:
         first_issue = issues[0]
 
@@ -91,11 +128,11 @@ def analyze_code(code: str) -> dict:
             "issues": issues
         }
 
-    # 5. Si no se encontraron problemas
     return {
         "valid": True,
         "syntax_valid": True,
-        "message": "La sintaxis del código es correcta.",        "line": None,
+        "message": "La sintaxis del código es correcta.",
+        "line": None,
         "column": None,
         "issues": []
     }

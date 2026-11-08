@@ -1,9 +1,10 @@
 
 import ast
+import builtins
 
 
 class NameUsageVisitor(ast.NodeVisitor):
-    """Identifica variables asignadas y utilizadas."""
+    """Identifica variables declaradas y utilizadas."""
 
     def __init__(self):
         self.assigned = {}
@@ -17,7 +18,7 @@ class NameUsageVisitor(ast.NodeVisitor):
             self.used.add(node.id)
 
     def visit_FunctionDef(self, node):
-        # No analizar funciones internas en este recorrido.
+        # No entrar en funciones internas.
         return
 
     def visit_AsyncFunctionDef(self, node):
@@ -26,12 +27,26 @@ class NameUsageVisitor(ast.NodeVisitor):
     def visit_ClassDef(self, node):
         return
 
+    def visit_Import(self, node):
+        for alias in node.names:
+            name = alias.asname or alias.name.split(".")[0]
+            self.assigned.setdefault(name, node.lineno)
+
+    def visit_ImportFrom(self, node):
+        for alias in node.names:
+            if alias.name != "*":
+                name = alias.asname or alias.name
+                self.assigned.setdefault(name, node.lineno)
+
 
 def analyze_quality(code: str, max_function_lines: int = 20) -> dict:
     """
     Analiza la calidad del código Python.
 
-    Detecta variables sin utilizar y funciones demasiado largas.
+    Detecta:
+    - Variables sin utilizar.
+    - Variables no definidas.
+    - Funciones demasiado largas.
     """
 
     if not code.strip():
@@ -52,21 +67,47 @@ def analyze_quality(code: str, max_function_lines: int = 20) -> dict:
         }
 
     issues = []
+    builtins_names = set(dir(builtins))
 
-    # Analizar las funciones
+    # Obtener las variables y nombres definidos en el módulo.
+    module_visitor = NameUsageVisitor()
+
+    for statement in tree.body:
+        if isinstance(statement, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                  ast.ClassDef)):
+            module_visitor.assigned.setdefault(
+                statement.name, statement.lineno
+            )
+        else:
+            module_visitor.visit(statement)
+
+    global_names = set(module_visitor.assigned)
+
+    # Detectar nombres utilizados pero no definidos en el módulo.
+    for name in module_visitor.used:
+        if name not in global_names and name not in builtins_names:
+            issues.append({
+                "type": "undefined_variable",
+                "line": 1,
+                "column": None,
+                "message": (
+                    f"El nombre '{name}' se utiliza "
+                    "pero no está definido."
+                )
+            })
+
+    # Analizar cada función.
     for node in ast.walk(tree):
 
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
 
-            # Calcular la longitud de la función
-            function_lines = (
-                node.end_lineno - node.lineno + 1
-            )
+            function_lines = node.end_lineno - node.lineno + 1
 
             if function_lines > max_function_lines:
                 issues.append({
                     "type": "long_function",
                     "line": node.lineno,
+                    "column": None,
                     "message": (
                         f"La función '{node.name}' tiene "
                         f"{function_lines} líneas. "
@@ -75,21 +116,64 @@ def analyze_quality(code: str, max_function_lines: int = 20) -> dict:
                     )
                 })
 
-            # Revisar variables locales
             visitor = NameUsageVisitor()
+
+            # Las funciones no deben considerar sus parámetros
+            # como variables sin utilizar.
+            arguments = (
+                node.args.posonlyargs
+                + node.args.args
+                + node.args.kwonlyargs
+            )
+
+            parameter_names = {
+                argument.arg for argument in arguments
+            }
+
+            if node.args.vararg:
+                parameter_names.add(node.args.vararg.arg)
+
+            if node.args.kwarg:
+                parameter_names.add(node.args.kwarg.arg)
 
             for statement in node.body:
                 visitor.visit(statement)
 
+            local_names = set(visitor.assigned) | parameter_names
+
+            # Detectar variables locales sin utilizar.
             for name, line in visitor.assigned.items():
 
-                if name not in visitor.used and not name.startswith("_"):
+                if (
+                    name not in visitor.used
+                    and name not in parameter_names
+                    and not name.startswith("_")
+                ):
                     issues.append({
                         "type": "unused_variable",
                         "line": line,
+                        "column": None,
                         "message": (
                             f"La variable '{name}' "
                             "está declarada pero no se utiliza."
+                        )
+                    })
+
+            # Detectar variables utilizadas pero no definidas.
+            for name in visitor.used:
+
+                if (
+                    name not in local_names
+                    and name not in global_names
+                    and name not in builtins_names
+                ):
+                    issues.append({
+                        "type": "undefined_variable",
+                        "line": node.lineno,
+                        "column": None,
+                        "message": (
+                            f"El nombre '{name}' se utiliza "
+                            "pero no está definido."
                         )
                     })
 
