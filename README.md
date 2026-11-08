@@ -1,38 +1,55 @@
-# smart-developer-agent
-Sistema de agentes inteligentes personalizados con Python
 # Smart Developer Agent
+
+**Sistema de agentes inteligentes personalizados desarrollado con Python.**
 
 ## 1. Descripción del proyecto
 
-Smart Developer Agent es un proyecto desarrollado en Python que busca implementar un agente inteligente capaz de utilizar diferentes Skills (habilidades) para apoyar tareas de desarrollo de software, comenzando con la revisión de código.
+Smart Developer Agent es un proyecto desarrollado en Python que implementa un sistema modular de agentes inteligentes capaces de utilizar diferentes Skills (habilidades) para apoyar tareas relacionadas con el desarrollo de software.
 
-## 2. Objetivos
+El proyecto comienza con un agente especializado en la revisión de código Python, capaz de analizar la sintaxis, identificar errores y preparar recomendaciones para mejorar la calidad del código.
 
-- Implementar un sistema modular basado en Skills.
+Su arquitectura permite incorporar nuevas habilidades y funcionalidades de manera independiente.
+
+## 2. Objetivos del proyecto
+
+- Implementar un sistema modular basado en agentes inteligentes y Skills.
 - Identificar y cargar habilidades desde archivos `SKILL.md`.
-- Desarrollar un agente encargado de preparar revisiones de código.
-- Detectar posibles errores y malas prácticas mediante futuras capacidades de análisis.
-- Implementar pruebas automatizadas para verificar el funcionamiento del sistema.
+- Desarrollar un agente especializado en revisión de código.
+- Analizar código Python mediante herramientas de análisis sintáctico.
+- Detectar errores de sintaxis y proporcionar información sobre su ubicación.
+- Proponer mejoras y recomendaciones de programación.
+- Implementar pruebas automatizadas para validar el funcionamiento del sistema.
+- Facilitar la incorporación de nuevas funcionalidades.
 
 ## 3. Tecnologías utilizadas
 
-- Python 3.
-- Git y GitHub.
-- Visual Studio Code.
-- pathlib: gestión de rutas y archivos.
-- unittest: ejecución de pruebas automatizadas.
+| Tecnología | Función |
+|---|---|
+| Python 3 | Lenguaje principal |
+| Visual Studio Code | Entorno de desarrollo |
+| Git | Control de versiones |
+| GitHub | Almacenamiento y colaboración |
+| pathlib | Gestión de rutas y archivos |
+| ast | Análisis sintáctico de código Python |
+| unittest | Pruebas automatizadas |
+| PowerShell | Ejecución de comandos |
 
 ## 4. Estructura del proyecto
 
 ```text
 smart-developer-agent/
 │
+├── .venv/
+│
 ├── agents/
+│   ├── __init__.py
 │   └── code_review_agent.py
 │
 ├── config/
 │
 ├── core/
+│   ├── __init__.py
+│   ├── code_analyzer.py
 │   └── skill_loader.py
 │
 ├── data/
@@ -42,80 +59,59 @@ smart-developer-agent/
 │       └── SKILL.md
 │
 ├── tests/
-│   ├── test_skill_loader.py
-│   └── test_code_review_agent.py
+│   ├── __init__.py
+│   ├── test_code_analyzer.py
+│   ├── test_code_review_agent.py
+│   └── test_skill_loader.py
 │
 ├── .gitignore
+├── main.py
 ├── requirements.txt
 └── README.md
 ```
 
-## 5. Instalación
+## 5. Funcionalidades implementadas
 
-Clonar el repositorio:
+### 5.1. Sistema modular de Skills
 
-```bash
-git clone URL_DEL_REPOSITORIO
-```
+Permite organizar las habilidades del agente mediante archivos `SKILL.md`.
 
-Ingresar al proyecto:
+Cada Skill contiene instrucciones específicas para realizar una tarea determinada.
 
-```bash
-cd smart-developer-agent
-```
+### 5.2. Cargador de Skills
 
-Crear un entorno virtual:
+Implementado en `core/skill_loader.py`.
 
-```bash
-python -m venv .venv
-```
+Responsabilidades:
 
-Activar el entorno virtual en Windows:
+- Localizar el directorio de Skills.
+- Identificar los archivos `SKILL.md`.
+- Leer y cargar las instrucciones.
+- Gestionar directorios o archivos inexistentes.
 
-```powershell
-.venv\Scripts\Activate.ps1
-```
+### 5.3. Agente de revisión de código
 
-Instalar dependencias:
+Implementado en `agents/code_review_agent.py`.
 
-```bash
-pip install -r requirements.txt
-```
+Responsabilidades:
 
-## 6. Pruebas automatizadas
+- Cargar la Skill de revisión de código.
+- Recibir código Python para su revisión.
+- Preparar instrucciones de análisis.
+- Incorporar las instrucciones de la habilidad correspondiente.
 
-Ejecutar las pruebas del cargador de Skills:
+### 5.4. Analizador de código Python
 
-```bash
-python -m unittest tests.test_skill_loader -v
-```
+Implementado en `core/code_analyzer.py`.
 
-Ejecutar las pruebas del agente:
+Funcionalidades actuales:
 
-```bash
-python -m unittest tests.test_code_review_agent -v
-```
+- Analizar la sintaxis del código Python.
+- Identificar errores sintácticos.
+- Obtener el número de línea del error.
+- Obtener la posición de la columna.
+- Informar cuando el código tiene una sintaxis correcta.
 
-Ejecutar todas las pruebas:
+El análisis se realiza mediante el módulo estándar `ast` de Python.
 
-```bash
-python -m unittest discover -s tests -v
-```
-
-## 7. Estado actual del proyecto
-
-- [x] Estructura inicial del proyecto.
-- [x] Implementación del cargador de Skills.
-- [x] Creación de la Skill de revisión de código.
-- [x] Pruebas automatizadas del cargador.
-- [x] Implementación inicial del agente de revisión.
-- [ ] Pruebas automatizadas del agente.
-- [ ] Implementación de interfaz interactiva CLI.
-- [ ] Integración de capacidades de análisis mediante IA.
-- [ ] Documentación completa y validación final.
-
----
-
-**Proyecto:** Smart Developer Agent  
-**Lenguaje:** Python  
-**Control de versiones:** Git y GitHub
+### 5.5
